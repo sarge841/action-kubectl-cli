@@ -1,0 +1,32 @@
+name: tests
+
+on: [push]
+
+permissions:
+  contents: read  # Allows reading repository contents
+
+jobs:
+  kustomize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Create Kustomization File
+        run: |
+          echo 'configMapGenerator:
+          - name: example
+            literals:
+          - FOO=Bar' > kustomization.yaml
+      - name: Run Kustomize
+        uses: ./
+        with:
+          args: kustomize
+          output_variable: MULTI_LINE_OUTPUT
+      - name: Check Outputs
+        run: |
+          echo "Multi Line Output: $MULTI_LINE_OUTPUT"
+          if [ -z "$MULTI_LINE_OUTPUT" ]; then
+            echo "[ERROR] MULTI_LINE_OUTPUT is empty"
+            exit 1
+          fi
+          echo "[INFO] Outputs are valid"

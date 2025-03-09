@@ -1,0 +1,98 @@
+name: SDK version upgrade
+
+on:
+  schedule:
+    - cron: "0 */12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write  # Allows reading and writing repository contents
+  packages: write  # Allows creating releases
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Check if new version exist
+        id: check
+        run: |
+          SDK_VERSION=$(curl --silent "https://api.github.com/repos/kubernetes/kubernetes/releases" | jq '.[] | select(.prerelease==false) | .tag_name' | sort -V -r | head -n 1 | tr -d '"')
+          LATEST_VERSION=$(curl --silent "https://api.github.com/repos/${{ github.repository }}/releases/latest" | tac | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          DOCKER_VERSION=$(cat $GITHUB_WORKSPACE/Dockerfile | grep "ARG KUBE_VERSION=" | sed -E 's/ARG KUBE_VERSION=//' | tr -d '"')
+          
+          echo "Provider tag: ${SDK_VERSION}"
+          echo "Current tag: ${LATEST_VERSION}"
+          echo "Docker tag: ${DOCKER_VERSION}"
+          
+          if [ "$SDK_VERSION" != "$LATEST_VERSION" ]; then
+            if [ "$LATEST_VERSION" = "`echo -e "$SDK_VERSION\n$LATEST_VERSION" | sort -V | head -n1`" ]; then
+              if [ "$DOCKER_VERSION" == "$LATEST_VERSION" ]; then
+                echo "New version detected: $SDK_VERSION. Latest in this repo: $LATEST_VERSION. Updating..."
+                echo "newest=yes" >> $GITHUB_ENV
+                echo "SDK_VERSION=${SDK_VERSION}" >> $GITHUB_ENV
+                echo "LATEST_VERSION=${LATEST_VERSION}" >> $GITHUB_ENV
+              else
+                echo "::error::Tag version in Dockerfile ($DOCKER_VERSION) is not the same as the latest release ($LATEST_VERSION)."
+                exit 1
+              fi
+            else
+              echo "newest=no" >> $GITHUB_ENV
+            fi
+          else
+            echo "newest=no" >> $GITHUB_ENV
+          fi
+
+      - name: Validate SDK version and check release availability
+        id: test
+        if: env.newest == 'yes'
+        run: |
+          if [[ $SDK_VERSION =~ ^v[0-9]+(\.[0-9]+){2,3}$ ]]; then
+            echo "$SDK_VERSION is a valid semantic version"
+          else
+            echo "::error::$SDK_VERSION is not a valid semantic version!"
+            exit 1
+          fi
+          echo "Checking if release with tag $SDK_VERSION is available"
+          status_code=$(curl -L https://dl.k8s.io/release/$SDK_VERSION/bin/linux/amd64/kubectl --head --silent --output /dev/null --write-out "%{http_code}")
+          echo "HTTP status code: $status_code"
+          if [ "$status_code" == "200" ] ; then
+            echo "exist=yes" >> $GITHUB_ENV
+            echo "Release with tag $SDK_VERSION is available"
+          else
+            echo "exist=no" >> $GITHUB_ENV
+            echo "Release with tag $SDK_VERSION is not available, HTTP status code: $status_code"
+          fi
+
+      - name: Modify Dockerfile
+        id: modify
+        if: success() && env.newest == 'yes' && env.exist == 'yes'
+        run: |
+          git checkout main
+          FROM_LINE="ARG KUBE_VERSION=\"$LATEST_VERSION\""
+          TO_LINE="ARG KUBE_VERSION=\"$SDK_VERSION\""
+          sed -i "s/${FROM_LINE}/${TO_LINE}/" $GITHUB_WORKSPACE/Dockerfile
+          echo "tag=$SDK_VERSION" >> $GITHUB_ENV
+
+      - name: Commit changed files to repository
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Update kubectl to ${{ env.SDK_VERSION }}"
+          commit_options: '--no-verify'
+          repository: ${{ github.repository }}
+          branch: main
+          commit_user_name: ${{ github.actor }}
+          commit_user_email: ${{ github.actor }}@users.noreply.github.com
+
+      - name: Create new release
+        if: success() && env.tag != '0'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.tag }}
+          release_name: ${{ env.tag }}
+          draft: false
+          prerelease: false
