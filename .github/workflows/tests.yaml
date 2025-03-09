@@ -2,6 +2,10 @@ name: tests
 
 on: [push]
 
+env:
+  # Placeholder for the base64-encoded kubeconfig file. Just some random text.
+  KUBE_CONFIG: 'VGhpcyBpcyBhIHRlc3QgZmlsZS4KTm9ybWFsbHksIHRoaXMgd291bGQgY29udGFpbiB5b3VyIGt1YmVjb25maWcgZmlsZS4KSW4gdGhpcyBjYXNlLCBJIGRvbid0IGhhdmUgYW55dGhpbmcu'
+
 permissions:
   contents: read  # Allows reading repository contents
 
