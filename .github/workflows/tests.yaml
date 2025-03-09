@@ -18,9 +18,9 @@ jobs:
       - name: Create Kustomization File
         run: |
           echo 'configMapGenerator:
-          - name: example
-            literals:
-          - FOO=Bar' > kustomization.yaml
+              - name: example
+                literals:
+                  - FOO=Bar' > kustomization.yaml
       - name: Run Kustomize
         uses: ./
         with:
