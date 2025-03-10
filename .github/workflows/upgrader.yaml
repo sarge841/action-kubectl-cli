@@ -86,7 +86,7 @@ jobs:
         if: success() && env.tag != '0'
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ env.tag }}
           release_name: ${{ env.tag }}
