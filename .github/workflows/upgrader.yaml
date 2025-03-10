@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          path: $GITHUB_REPOSITORY
 
       - name: Check if new version exist
         id: check
@@ -70,7 +72,6 @@ jobs:
         id: modify
         if: success() && env.newest == 'yes' && env.exist == 'yes'
         run: |
-          git checkout main
           FROM_LINE="ARG KUBE_VERSION=\"$LATEST_VERSION\""
           TO_LINE="ARG KUBE_VERSION=\"$SDK_VERSION\""
           sed -i "s/${FROM_LINE}/${TO_LINE}/" $GITHUB_WORKSPACE/Dockerfile
@@ -80,11 +81,8 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Update kubectl to ${{ env.SDK_VERSION }}"
-          commit_options: '--no-verify'
-          repository: ${{ github.repository }}
-          branch: main
           commit_user_name: ${{ github.actor }}
-          commit_user_email: ${{ github.actor }}@users.noreply.github.com
+          commit_user_email: ${{ github.actor_id }}+github-actions[bot]@users.noreply.github.com
 
       - name: Create new release
         if: success() && env.tag != '0'
