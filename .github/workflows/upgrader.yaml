@@ -15,8 +15,6 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-        with:
-          path: $GITHUB_REPOSITORY
 
       - name: Check if new version exist
         id: check
