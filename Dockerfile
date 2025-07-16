@@ -1,7 +1,7 @@
 FROM python:3.13-alpine
 
 ARG TARGETPLATFORM
-ARG KUBE_VERSION="v1.33.2"
+ARG KUBE_VERSION="v1.33.3"
 
 COPY entrypoint.py /entrypoint.py
 
